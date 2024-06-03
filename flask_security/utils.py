@@ -19,7 +19,7 @@ import hashlib
 import hmac
 import time
 import typing as t
-from urllib.parse import parse_qsl, quote, urlsplit, urlunsplit, urlencode
+from urllib.parse import parse_qsl, quote, urlsplit, urlunsplit, urlencode, urlparse
 import urllib.request
 import urllib.error
 import warnings
@@ -614,20 +614,59 @@ def validate_redirect_url(url: str) -> bool:
         return False
     url_next = urlsplit(url)
     url_base = urlsplit(request.host_url)
+
     if (url_next.netloc or url_next.scheme) and url_next.netloc != url_base.netloc:
         base_domain = current_app.config.get("SERVER_NAME")
-        if (
-            config_value("REDIRECT_ALLOW_SUBDOMAINS")
-            and base_domain
-            and (
-                url_next.netloc == base_domain
-                or url_next.netloc.endswith(f".{base_domain}")
-            )
-        ):
-            return True
+
+        # Some Flask implementations may not have SERVER_NAME set
+        if not base_domain:
+            base_domain = request.host
+        tld = get_top_level_domain(base_domain)
+
+        # Are we allowed to redirect to other hosts outside of ourself?
+        if config_value("REDIRECT_ALLOW_SUBDOMAINS"):
+            # Capture any allowed subdomains
+            allowed_subdomains = []
+
+            if config_value("REDIRECT_MATCH_SUBDOMAINS"):
+                allowed_subdomains = config_value("REDIRECT_MATCH_SUBDOMAINS")
+
+            # If we have a list of allowed subdomains, check if the next
+            # URL is in the list
+            if (
+                len(allowed_subdomains) > 0
+                and url_next.netloc in allowed_subdomains
+                and url_next.netloc.endswith(f".{tld}")
+            ):
+                return True
+            elif (
+                len(allowed_subdomains) == 0
+                and base_domain
+                and (
+                    url_next.netloc == base_domain
+                    or url_next.netloc.endswith(f".{base_domain}")
+                )
+            ):
+                # If we don't have a list of allowed subdomains, check if the
+                # next URL is the same as the base domain or a subdomain of the
+                # base domain. This is the original behavior.
+                return True
+            else:
+                return False
         else:
             return False
+
     return True
+
+
+def get_top_level_domain(url):
+    # Extract the hostname from the URL if it's not already a hostname
+    hostname = urlparse(url).hostname or url
+    # Split the hostname into parts
+    hostname_parts = hostname.split(".")
+    # The TLD is the last part
+    tld = hostname_parts[-1] if len(hostname_parts) > 1 else ""
+    return tld
 
 
 def get_post_action_redirect(

@@ -320,6 +320,26 @@ These configuration keys are used globally across all features.
 
     .. versionadded:: 4.0.0
 
+.. py:data:: SECURITY_REDIRECT_MATCH_SUBDOMAINS
+
+    This attribute specifies a list of permitted subdomains that can be the
+    target of redirections. Only the subdomains included in this list will be
+    authorized to receive redirects.
+
+    For enhanced security, configuring this setting will override the default
+    setting that permits all subdomains of SERVER_NAME. This is based on the
+    assumption that you desire to have precise control over the host names that
+    are permitted. It is essential that you provide a comprehensive list of all
+    the subdomains you intend to allow access to.
+
+    This setting requires that :py:data:`SECURITY_REDIRECT_ALLOW_SUBDOMAINS` is set to ``True``.
+
+    Examples: ``['auth.example.com']`` will only allow the auth.example.com subdomain to be redirected to.
+
+    Default: ``[]``.
+
+    .. versionadded:: 5.4.X
+
 .. py:data:: SECURITY_CSRF_PROTECT_MECHANISMS
 
     Authentication mechanisms that require CSRF protection.
